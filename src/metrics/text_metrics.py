@@ -6,24 +6,46 @@ from sklearn.metrics.pairwise import cosine_similarity
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
+def normalize_text(text):
+    if text is None:
+        return ""
+
+    text = str(text).strip().lower()
+
+    # Normalize multiple spaces
+    return " ".join(text.split())
+
+
 def levenshtein_distance(text1, text2):
+    text1 = normalize_text(text1)
+    text2 = normalize_text(text2)
+
     return Levenshtein.distance(text1, text2)
 
 
 def jaccard_similarity(text1, text2):
-    set1 = set(text1.lower().split())
-    set2 = set(text2.lower().split())
+    text1 = normalize_text(text1)
+    text2 = normalize_text(text2)
+
+    set1 = set(text1.split())
+    set2 = set(text2.split())
 
     intersection = set1.intersection(set2)
     union = set1.union(set2)
 
     if not union:
-        return 1.0
+        return None
 
     return len(intersection) / len(union)
 
 
 def semantic_cosine_similarity(text1, text2):
+    text1 = normalize_text(text1)
+    text2 = normalize_text(text2)
+
+    if not text1 or not text2:
+        return None
+
     embeddings = model.encode([text1, text2])
 
     similarity = cosine_similarity(
@@ -32,24 +54,3 @@ def semantic_cosine_similarity(text1, text2):
     )[0][0]
 
     return float(similarity)
-
-
-if __name__ == "__main__":
-    text1 = "Login"
-    text2 = "Logn"
-
-    distance = levenshtein_distance(text1, text2)
-    print("Levenshtein distance:", distance)
-
-    text3 = "Create New Account"
-    text4 = "New Account Create"
-
-    similarity = jaccard_similarity(text3, text4)
-    print("Jaccard similarity:", similarity)
-
-    text5 = "Login"
-    text6 = "Sign in"
-
-    semantic_similarity = semantic_cosine_similarity(text5, text6)
-    print("Semantic cosine similarity:", semantic_similarity)
-    
