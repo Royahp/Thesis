@@ -14,6 +14,10 @@ def clean(value):
 
     return str(value).strip()
 
+def normalize_bounds(value):
+    # Normalize bounds format
+    value = clean(value)
+    return value.replace(";", ",") #check the bounds in csv and xml are written in a same way not like [90;0][240;132] and [90;0][240;132]
 
 def find_xml_node(root, csv_widget):
     # Find the matching widget inside the XML
@@ -21,7 +25,7 @@ def find_xml_node(root, csv_widget):
     resource_id = clean(csv_widget.get("resource-id"))
     widget_class = clean(csv_widget.get("class"))
     text = clean(csv_widget.get("text"))
-    bounds = clean(csv_widget.get("bounds"))
+    bounds = normalize_bounds(csv_widget.get("bounds"))
 
     best_node = None
     best_score = -1
