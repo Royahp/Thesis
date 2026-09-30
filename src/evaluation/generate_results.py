@@ -17,6 +17,13 @@ from src.evaluation.xml_utils import (
 )
 from src.metrics.dom_metrics import exact_match
 
+from src.metrics.spatial_metrics import (
+    parse_bounds,
+    position_distance,
+    size_distance,
+    iou_similarity,
+)
+
 
 
 GROUND_TRUTH_FILE = Path("data/ground_truth/ground_truth.xlsx")
@@ -86,7 +93,10 @@ for _, row in ground_truth.iterrows():
             "Tree Edit Distance on DOM": None,
             "Status": "CSV file missing",
             "Exact match on class": None,
-"Semantic cosine on content-desc": None,
+            "Semantic cosine on content-desc": None,
+            "Euclidean distance on position": None,
+            "Euclidean distance on size": None,
+            "IoU on bounding box": None,
         })
 
         continue
@@ -114,7 +124,11 @@ for _, row in ground_truth.iterrows():
             "Tree Edit Distance on DOM": None,
             "Status": "Node index out of range",
             "Exact match on class": None,
-"Semantic cosine on content-desc": None,
+            "Semantic cosine on content-desc": None,
+            "Euclidean distance on position": None,
+            "Euclidean distance on size": None,
+            "IoU on bounding box": None,
+           
         })
 
         continue
@@ -253,7 +267,38 @@ for _, row in ground_truth.iterrows():
                 old_tree_text,
                 new_tree_text
             )
+    # Read bounds
+    old_bounds = parse_bounds(
+        old_widget.get("bounds")
+    )
 
+    new_bounds = parse_bounds(
+        new_widget.get("bounds")
+    )
+
+        # Calculate spatial metrics
+    if old_bounds is not None and new_bounds is not None:
+
+        position_dist = position_distance(
+            old_bounds,
+            new_bounds
+        )
+
+        size_dist = size_distance(
+            old_bounds,
+            new_bounds
+        )
+
+        iou = iou_similarity(
+            old_bounds,
+            new_bounds
+        )
+
+    else:
+
+        position_dist = None
+        size_dist = None
+        iou = None
 
     # Add one result row for this widget pair
     results.append({
@@ -271,6 +316,9 @@ for _, row in ground_truth.iterrows():
         
         "Exact match on class": class_match,
         "Semantic cosine on content-desc": content_desc_cosine,
+                "Euclidean distance on position": position_dist,
+        "Euclidean distance on size": size_dist,
+        "IoU on bounding box": iou,
         "Status": "OK",
     })
 
