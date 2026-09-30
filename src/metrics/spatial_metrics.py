@@ -1,68 +1,101 @@
 import math
 
 
-def euclidean_distance(point1, point2):
+def parse_bounds(bounds):
+    # Convert bounds text to coordinates
+    if bounds is None:
+        return None
+
+    bounds = str(bounds).strip().replace(";", ",")
+
+    if bounds == "" or bounds.lower() == "nan":
+        return None
+
+    try:
+        first, second = bounds.split("][")
+        first = first.replace("[", "")
+        second = second.replace("]", "")
+
+        x1, y1 = map(float, first.split(","))
+        x2, y2 = map(float, second.split(","))
+
+        return x1, y1, x2, y2
+
+    except (ValueError, AttributeError):
+        return None
+
+
+def position_distance(bounds1, bounds2):
+    # Compare widget positions
+    x1_old, y1_old, _, _ = bounds1
+    x1_new, y1_new, _, _ = bounds2
+
     return math.sqrt(
-        (point1[0] - point2[0]) ** 2 +
-        (point1[1] - point2[1]) ** 2
+        (x1_old - x1_new) ** 2 +
+        (y1_old - y1_new) ** 2
     )
 
 
-def iou(box1, box2):
-    # box format: (x, y, width, height)
+def size_distance(bounds1, bounds2):
+    # Compare widget sizes
+    x1_old, y1_old, x2_old, y2_old = bounds1
+    x1_new, y1_new, x2_new, y2_new = bounds2
 
-    x1, y1, w1, h1 = box1
-    x2, y2, w2, h2 = box2
+    width_old = x2_old - x1_old
+    height_old = y2_old - y1_old
 
-    left = max(x1, x2)
-    top = max(y1, y2)
-    right = min(x1 + w1, x2 + w2)
-    bottom = min(y1 + h1, y2 + h2)
+    width_new = x2_new - x1_new
+    height_new = y2_new - y1_new
 
-    intersection_width = max(0, right - left)
-    intersection_height = max(0, bottom - top)
+    return math.sqrt(
+        (width_old - width_new) ** 2 +
+        (height_old - height_new) ** 2
+    )
 
-    intersection_area = intersection_width * intersection_height
 
-    area1 = w1 * h1
-    area2 = w2 * h2
+def iou_similarity(bounds1, bounds2):
+    # Calculate Intersection over Union
+    x1_old, y1_old, x2_old, y2_old = bounds1
+    x1_new, y1_new, x2_new, y2_new = bounds2
 
-    union_area = area1 + area2 - intersection_area
+    intersection_x1 = max(x1_old, x1_new)
+    intersection_y1 = max(y1_old, y1_new)
+
+    intersection_x2 = min(x2_old, x2_new)
+    intersection_y2 = min(y2_old, y2_new)
+
+    intersection_width = max(
+        0,
+        intersection_x2 - intersection_x1
+    )
+
+    intersection_height = max(
+        0,
+        intersection_y2 - intersection_y1
+    )
+
+    intersection_area = (
+        intersection_width *
+        intersection_height
+    )
+
+    old_area = (
+        (x2_old - x1_old) *
+        (y2_old - y1_old)
+    )
+
+    new_area = (
+        (x2_new - x1_new) *
+        (y2_new - y1_new)
+    )
+
+    union_area = (
+        old_area +
+        new_area -
+        intersection_area
+    )
 
     if union_area == 0:
-        return 0.0
+        return None
 
     return intersection_area / union_area
-
-
-if __name__ == "__main__":
-
-    # Position test
-    old_position = (100, 200)
-    new_position = (103, 204)
-
-    position_distance = euclidean_distance(
-        old_position,
-        new_position
-    )
-
-    print("Position Euclidean distance:", position_distance)
-
-    # Size test
-    old_size = (120, 40)
-    new_size = (124, 43)
-
-    size_distance = euclidean_distance(
-        old_size,
-        new_size
-    )
-
-    print("Size Euclidean distance:", size_distance)
-
-    # Bounding Box IoU test
-    old_box = (100, 200, 120, 40)
-    new_box = (105, 202, 120, 40)
-
-    overlap = iou(old_box, new_box)
-
-    print("Bounding Box IoU:", overlap)
