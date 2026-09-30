@@ -15,6 +15,7 @@ from src.evaluation.xml_utils import (
     find_xml_node,
     xml_node_to_tree_text,
 )
+from src.metrics.dom_metrics import exact_match
 
 
 
@@ -38,16 +39,7 @@ def clean_value(value):
     return value
 
 
-def exact_match(value1, value2):
-    # Compare two values exactly
 
-    value1 = clean_value(value1)
-    value2 = clean_value(value2)
-
-    if value1 is None or value2 is None:
-        return None
-
-    return 1 if value1 == value2 else 0
 
 
 # Load the ground truth file
@@ -93,6 +85,8 @@ for _, row in ground_truth.iterrows():
             "Semantic cosine similarity": None,
             "Tree Edit Distance on DOM": None,
             "Status": "CSV file missing",
+            "Exact match on class": None,
+"Semantic cosine on content-desc": None,
         })
 
         continue
@@ -119,6 +113,8 @@ for _, row in ground_truth.iterrows():
             "Semantic cosine similarity": None,
             "Tree Edit Distance on DOM": None,
             "Status": "Node index out of range",
+            "Exact match on class": None,
+"Semantic cosine on content-desc": None,
         })
 
         continue
@@ -174,12 +170,52 @@ for _, row in ground_truth.iterrows():
         semantic_cosine = None
 
 
-    # Compare the resource IDs
+       # Compare the resource IDs
     resource_id_match = exact_match(
         old_resource_id,
         new_resource_id
     )
 
+
+    # Read class values
+    old_class = clean_value(
+        old_widget.get("class")
+    )
+
+    new_class = clean_value(
+        new_widget.get("class")
+    )
+
+
+    # Compare class values
+    class_match = exact_match(
+        old_class,
+        new_class
+    )
+
+
+    # Read content descriptions
+    old_content_desc = clean_value(
+        old_widget.get("content-desc")
+    )
+
+    new_content_desc = clean_value(
+        new_widget.get("content-desc")
+    )
+
+
+    # Compare content descriptions
+    if old_content_desc is not None and new_content_desc is not None:
+
+        content_desc_cosine = semantic_cosine_similarity(
+            old_content_desc,
+            new_content_desc
+        )
+
+    else:
+
+        content_desc_cosine = None
+    
 
     # Compare the local DOM structure
     tree_edit = None
@@ -232,6 +268,9 @@ for _, row in ground_truth.iterrows():
         "Exact match on resource-id": resource_id_match,
         "Semantic cosine similarity": semantic_cosine,
         "Tree Edit Distance on DOM": tree_edit,
+        
+        "Exact match on class": class_match,
+        "Semantic cosine on content-desc": content_desc_cosine,
         "Status": "OK",
     })
 
