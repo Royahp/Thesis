@@ -153,6 +153,62 @@ def rank_metric(results_df, metric_column, higher_is_better):
 
     return pd.DataFrame(ranking_results)
 
+def summarize_ranking(metric_name, ranking_df):
+
+    correct = (ranking_df["Status"] == "Correct").sum()
+
+    tie = (
+        ranking_df["Status"]
+        == "Tie includes Ground Truth"
+    ).sum()
+
+    wrong = (ranking_df["Status"] == "Wrong").sum()
+
+    not_applicable = (
+        ranking_df["Status"]
+        == "Not applicable"
+    ).sum()
+
+    total = len(ranking_df)
+
+    applicable = correct + tie + wrong
+
+    strict_accuracy = None
+    top_set_success = None
+    coverage = None
+
+    if applicable > 0:
+        strict_accuracy = correct / applicable
+        top_set_success = (correct + tie) / applicable
+
+    if total > 0:
+        coverage = applicable / total
+    tie_rate = None
+    overall_correct_rate = None
+    overall_top_set_rate = None
+
+    if applicable > 0:
+     tie_rate = tie / applicable
+
+    if total > 0:
+     overall_correct_rate = correct / total
+     overall_top_set_rate = (correct + tie) / total
+
+    return {
+        "Metric": metric_name,
+        "Correct": correct,
+        "Tie": tie,
+        "Wrong": wrong,
+        "Not applicable": not_applicable,
+        "Applicable": applicable,
+        "Total": total,
+        "Coverage": coverage,
+        "Strict Accuracy": strict_accuracy,
+        "Top-set Success": top_set_success,
+        "Tie Rate": tie_rate,
+        "Overall Correct Rate": overall_correct_rate,
+        "Overall Top-set Rate": overall_top_set_rate,
+    }
 
 # Load Ground Truth
 ground_truth = pd.read_excel(GROUND_TRUTH_FILE)
@@ -485,7 +541,74 @@ neighbor_ranking = rank_metric(
     "Jaccard similarity on neighbor text",
     higher_is_better=True
 )
+summary_results = [
+    summarize_ranking(
+        "Text Levenshtein",
+        levenshtein_ranking
+    ),
 
+    summarize_ranking(
+        "Text Jaccard",
+        jaccard_ranking
+    ),
+
+    summarize_ranking(
+        "Text Semantic Cosine",
+        semantic_ranking
+    ),
+
+    summarize_ranking(
+        "Resource ID Exact Match",
+        resource_id_ranking
+    ),
+
+    summarize_ranking(
+        "Class Exact Match",
+        class_ranking
+    ),
+
+    summarize_ranking(
+        "DOM Attributes",
+        dom_attributes_ranking
+    ),
+
+    summarize_ranking(
+        "Content-desc Semantic Cosine",
+        content_desc_ranking
+    ),
+
+    summarize_ranking(
+        "Position Euclidean",
+        position_ranking
+    ),
+
+    summarize_ranking(
+        "Size Euclidean",
+        size_ranking
+    ),
+
+    summarize_ranking(
+        "Bounding Box IoU",
+        iou_ranking
+    ),
+
+    summarize_ranking(
+        "Tree Edit Distance",
+        tree_edit_ranking
+    ),
+
+    summarize_ranking(
+        "XPath Levenshtein",
+        xpath_ranking
+    ),
+
+    summarize_ranking(
+        "Neighbor Text Jaccard",
+        neighbor_ranking
+    ),
+]
+
+summary_df = pd.DataFrame(summary_results)
 # Create results folder
 RESULTS_FOLDER.mkdir(
     parents=True,
@@ -577,6 +700,11 @@ with pd.ExcelWriter(OUTPUT_FILE) as writer:
     sheet_name="Neighbor Ranking",
     index=False
 )
+    summary_df.to_excel(
+        writer,
+        sheet_name="Summary",
+        index=False
+    )
 
 print("Ground Truth rows:", len(ground_truth))
 print("Candidate comparisons:", len(results_df))
