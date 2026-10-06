@@ -7,8 +7,16 @@ from src.metrics.text_metrics import (
     jaccard_similarity,
     semantic_cosine_similarity,
 )
-
-
+from src.metrics.dom_metrics import (
+    exact_match,
+    dom_attributes_similarity,
+)
+from src.metrics.spatial_metrics import (
+    parse_bounds,
+    position_distance,
+    size_distance,
+    iou_similarity,
+)
 GROUND_TRUTH_FILE = Path("data/ground_truth/ground_truth.xlsx")
 DATASET_FOLDER = Path("data/raw/xmls")
 RESULTS_FOLDER = Path("results")
@@ -152,17 +160,68 @@ for _, row in ground_truth.iterrows():
     old_text = clean_value(
         old_widget.get("text")
     )
+    old_resource_id = clean_value(
+    old_widget.get("resource-id")
+    )
 
-    # Compare this old widget with ALL widgets in the new version
+    old_class = clean_value(
+    old_widget.get("class")
+    )
+    old_content_desc = clean_value(
+    old_widget.get("content-desc")
+    )
+    old_bounds = parse_bounds(
+    old_widget.get("bounds")
+)
+        # Compare this old widget with ALL widgets in the new version
     for candidate_id, new_widget in new_df.iterrows():
 
         new_text = clean_value(
             new_widget.get("text")
         )
 
+        new_resource_id = clean_value(
+            new_widget.get("resource-id")
+        )
+
+        new_class = clean_value(
+            new_widget.get("class")
+        )
+        new_content_desc = clean_value(
+            new_widget.get("content-desc")
+        )
+        new_bounds = parse_bounds(
+        new_widget.get("bounds")
+)
+
         levenshtein = None
         jaccard = None
         semantic_cosine = None
+
+        resource_id_match = exact_match(
+            old_resource_id,
+            new_resource_id
+        )
+
+        class_match = exact_match(
+            old_class,
+            new_class
+        )
+        dom_attributes_score = dom_attributes_similarity(
+            old_widget,
+            new_widget
+        )
+
+        content_desc_cosine = None
+
+        if (
+            old_content_desc is not None
+            and new_content_desc is not None
+        ):
+            content_desc_cosine = semantic_cosine_similarity(
+                old_content_desc,
+                new_content_desc
+            )
 
         if old_text is not None and new_text is not None:
 
@@ -180,20 +239,61 @@ for _, row in ground_truth.iterrows():
                 old_text,
                 new_text
             )
+        position_score = None
+        size_score = None
+        iou_score = None
 
+        if old_bounds is not None and new_bounds is not None:
+
+            position_score = position_distance(
+                old_bounds,
+                new_bounds
+            )
+
+            size_score = size_distance(
+                old_bounds,
+                new_bounds
+            )
+
+            iou_score = iou_similarity(
+                old_bounds,
+                new_bounds
+            )
         results.append({
             "App": app,
             "Widget description": description,
             "Old widget id": old_node,
             "Ground Truth new id": correct_new_node,
             "Candidate new id": candidate_id,
+
             "Old text": old_text,
             "Candidate text": new_text,
             "Levenshtein distance on text": levenshtein,
             "Jaccard similarity on text": jaccard,
             "Semantic cosine similarity on text": semantic_cosine,
+
+            "Old resource-id": old_resource_id,
+            "Candidate resource-id": new_resource_id,
+            "Exact match on resource-id": resource_id_match,
+
+            "Old class": old_class,
+            "Candidate class": new_class,
+            "Exact match on class": class_match,
+
             "Is Ground Truth candidate":
                 1 if candidate_id == correct_new_node else 0,
+
+            "DOM attributes similarity": dom_attributes_score,
+
+            "Old content-desc": old_content_desc,
+            "Candidate content-desc": new_content_desc,
+            "Semantic cosine on content-desc": content_desc_cosine,
+                        "Old bounds": old_bounds,
+            "Candidate bounds": new_bounds,
+
+            "Euclidean distance on position": position_score,
+            "Euclidean distance on size": size_score,
+            "IoU on bounding box": iou_score,
         })
 
 
@@ -217,6 +317,46 @@ jaccard_ranking = rank_metric(
 semantic_ranking = rank_metric(
     results_df,
     "Semantic cosine similarity on text",
+    higher_is_better=True
+)
+
+resource_id_ranking = rank_metric(
+    results_df,
+    "Exact match on resource-id",
+    higher_is_better=True
+)
+
+class_ranking = rank_metric(
+    results_df,
+    "Exact match on class",
+    higher_is_better=True
+)
+dom_attributes_ranking = rank_metric(
+    results_df,
+    "DOM attributes similarity",
+    higher_is_better=True
+)
+
+content_desc_ranking = rank_metric(
+    results_df,
+    "Semantic cosine on content-desc",
+    higher_is_better=True
+)
+position_ranking = rank_metric(
+    results_df,
+    "Euclidean distance on position",
+    higher_is_better=False
+)
+
+size_ranking = rank_metric(
+    results_df,
+    "Euclidean distance on size",
+    higher_is_better=False
+)
+
+iou_ranking = rank_metric(
+    results_df,
+    "IoU on bounding box",
     higher_is_better=True
 )
 
@@ -252,6 +392,48 @@ with pd.ExcelWriter(OUTPUT_FILE) as writer:
     semantic_ranking.to_excel(
         writer,
         sheet_name="Semantic Ranking",
+        index=False
+    )
+
+    resource_id_ranking.to_excel(
+        writer,
+        sheet_name="Resource ID Ranking",
+        index=False
+    )
+
+    class_ranking.to_excel(
+        writer,
+        sheet_name="Class Ranking",
+        index=False
+    )
+
+    dom_attributes_ranking.to_excel(
+        writer,
+        sheet_name="DOM Attributes Ranking",
+        index=False
+    )
+
+    content_desc_ranking.to_excel(
+        writer,
+        sheet_name="Content Desc Ranking",
+        index=False
+    )
+
+    position_ranking.to_excel(
+        writer,
+        sheet_name="Position Ranking",
+        index=False
+    )
+
+    size_ranking.to_excel(
+        writer,
+        sheet_name="Size Ranking",
+        index=False
+    )
+
+    iou_ranking.to_excel(
+        writer,
+        sheet_name="IoU Ranking",
         index=False
     )
 
