@@ -10,7 +10,7 @@ def normalize_text(text):
     if text is None:
         return ""
 
-    text = str(text).strip().lower()
+    text = str(text).strip()
 
     # Normalize multiple spaces
     return " ".join(text.split())
