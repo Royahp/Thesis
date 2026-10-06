@@ -97,3 +97,38 @@ def get_node_xpath(root, target_node):
         return None
 
     return search(root, "/hierarchy")
+
+def get_neighbor_text(root, target_node):
+    # Get text from neighboring widgets
+
+    parent = None
+
+    for node in root.iter():
+        for child in node:
+            if child is target_node:
+                parent = node
+                break
+
+        if parent is not None:
+            break
+
+    if parent is None:
+        return ""
+
+    texts = []
+
+    for sibling in parent:
+        if sibling is target_node:
+            continue
+
+        for node in sibling.iter():
+            text = clean(node.attrib.get("text"))
+            content_desc = clean(node.attrib.get("content-desc"))
+
+            if text:
+                texts.append(text)
+
+            if content_desc:
+                texts.append(content_desc)
+
+    return " ".join(texts)

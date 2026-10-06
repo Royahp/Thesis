@@ -14,7 +14,8 @@ from src.evaluation.xml_utils import (
     load_xml,
     find_xml_node,
     xml_node_to_tree_text,
-    get_node_xpath
+    get_node_xpath,
+    get_neighbor_text
 )
 from src.metrics.structural_metrics import (
     tree_edit_distance,
@@ -261,6 +262,10 @@ for _, row in ground_truth.iterrows():
     new_xpath = None
     xpath_distance = None
 
+    neighbor_text_old = None
+    neighbor_text_new = None
+    neighbor_jaccard = None
+
     old_xml_node = None
     new_xml_node = None
 
@@ -310,7 +315,21 @@ for _, row in ground_truth.iterrows():
                 old_xpath,
                 new_xpath
             )
+            neighbor_text_old = get_neighbor_text(
+                old_root,
+                old_xml_node
+            )
 
+            neighbor_text_new = get_neighbor_text(
+                new_root,
+                new_xml_node
+            )
+
+            if neighbor_text_old and neighbor_text_new:
+                neighbor_jaccard = jaccard_similarity(
+                    neighbor_text_old,
+                    neighbor_text_new
+                )
       # Read bounds
     old_bounds = parse_bounds(
         old_widget.get("bounds")
@@ -362,6 +381,9 @@ for _, row in ground_truth.iterrows():
         "XPath old": old_xpath,
         "XPath new": new_xpath,
         "Levenshtein distance on XPath": xpath_distance,
+        "Neighbor text old": neighbor_text_old,
+        "Neighbor text new": neighbor_text_new,
+        "Jaccard similarity on neighbor text": neighbor_jaccard,
         "Exact match on DOM attributes": dom_attributes_score,
         "Exact match on class": class_match,
         "Semantic cosine on content-desc": content_desc_cosine,
