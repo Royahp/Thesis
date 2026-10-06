@@ -17,9 +17,29 @@ from src.metrics.spatial_metrics import (
     size_distance,
     iou_similarity,
 )
+
+from src.evaluation.xml_utils import (
+    load_xml,
+    find_xml_node,
+    xml_node_to_tree_text,
+    get_node_xpath,
+)
+
+from src.metrics.structural_metrics import (
+    tree_edit_distance,
+    xpath_levenshtein_distance,
+)
+from src.evaluation.xml_utils import (
+    load_xml,
+    find_xml_node,
+    xml_node_to_tree_text,
+    get_node_xpath,
+    get_neighbor_text,
+)
 GROUND_TRUTH_FILE = Path("data/ground_truth/ground_truth.xlsx")
 DATASET_FOLDER = Path("data/raw/xmls")
 RESULTS_FOLDER = Path("results")
+
 OUTPUT_FILE = RESULTS_FOLDER / "candidate_ranking.xlsx"
 
 
@@ -151,6 +171,9 @@ for _, row in ground_truth.iterrows():
     old_csv = DATASET_FOLDER / f"{app}_old.csv"
     new_csv = DATASET_FOLDER / f"{app}_new.csv"
 
+    old_xml = DATASET_FOLDER / f"{app}_old.xml"
+    new_xml = DATASET_FOLDER / f"{app}_new.xml"
+
     old_df = pd.read_csv(old_csv)
     new_df = pd.read_csv(new_csv)
 
@@ -173,6 +196,37 @@ for _, row in ground_truth.iterrows():
     old_bounds = parse_bounds(
     old_widget.get("bounds")
 )
+    old_root = None
+    new_root = None
+    old_xml_node = None
+    old_tree_text = None
+    old_xpath = None
+    old_neighbor_text = None
+
+    if old_xml.exists() and new_xml.exists():
+
+        old_root = load_xml(old_xml)
+        new_root = load_xml(new_xml)
+
+        old_xml_node = find_xml_node(
+            old_root,
+            old_widget
+        )
+
+        if old_xml_node is not None:
+
+            old_tree_text = xml_node_to_tree_text(
+                old_xml_node
+            )
+
+            old_xpath = get_node_xpath(
+                old_root,
+                old_xml_node
+            )
+            old_neighbor_text = get_neighbor_text(
+            old_root,
+            old_xml_node
+        )
         # Compare this old widget with ALL widgets in the new version
     for candidate_id, new_widget in new_df.iterrows():
 
@@ -197,6 +251,7 @@ for _, row in ground_truth.iterrows():
         levenshtein = None
         jaccard = None
         semantic_cosine = None
+        
 
         resource_id_match = exact_match(
             old_resource_id,
@@ -259,6 +314,53 @@ for _, row in ground_truth.iterrows():
                 old_bounds,
                 new_bounds
             )
+            tree_edit_score = None
+        new_xpath = None
+        xpath_distance = None
+        new_neighbor_text = None
+        neighbor_jaccard = None
+
+        if (
+            old_root is not None
+            and new_root is not None
+            and old_xml_node is not None
+        ):
+
+            new_xml_node = find_xml_node(
+                new_root,
+                new_widget
+            )
+
+            if new_xml_node is not None:
+
+                new_tree_text = xml_node_to_tree_text(
+                    new_xml_node
+                )
+
+                tree_edit_score = tree_edit_distance(
+                    old_tree_text,
+                    new_tree_text
+                )
+
+                new_xpath = get_node_xpath(
+                    new_root,
+                    new_xml_node
+                )
+
+                xpath_distance = xpath_levenshtein_distance(
+                    old_xpath,
+                    new_xpath
+                )
+                new_neighbor_text = get_neighbor_text(
+    new_root,
+    new_xml_node
+)
+
+            if old_neighbor_text and new_neighbor_text:
+             neighbor_jaccard = jaccard_similarity(
+              old_neighbor_text,
+              new_neighbor_text
+    )
         results.append({
             "App": app,
             "Widget description": description,
@@ -294,6 +396,14 @@ for _, row in ground_truth.iterrows():
             "Euclidean distance on position": position_score,
             "Euclidean distance on size": size_score,
             "IoU on bounding box": iou_score,
+
+            "Tree Edit Distance on DOM": tree_edit_score,
+            "Old XPath": old_xpath,
+            "Candidate XPath": new_xpath,
+            "Levenshtein distance on XPath": xpath_distance,
+            "Neighbor text old": old_neighbor_text,
+            "Neighbor text candidate": new_neighbor_text,
+            "Jaccard similarity on neighbor text": neighbor_jaccard,
         })
 
 
@@ -359,7 +469,22 @@ iou_ranking = rank_metric(
     "IoU on bounding box",
     higher_is_better=True
 )
+tree_edit_ranking = rank_metric(
+    results_df,
+    "Tree Edit Distance on DOM",
+    higher_is_better=False
+)
 
+xpath_ranking = rank_metric(
+    results_df,
+    "Levenshtein distance on XPath",
+    higher_is_better=False
+)
+neighbor_ranking = rank_metric(
+    results_df,
+    "Jaccard similarity on neighbor text",
+    higher_is_better=True
+)
 
 # Create results folder
 RESULTS_FOLDER.mkdir(
@@ -436,7 +561,22 @@ with pd.ExcelWriter(OUTPUT_FILE) as writer:
         sheet_name="IoU Ranking",
         index=False
     )
+    tree_edit_ranking.to_excel(
+        writer,
+        sheet_name="Tree Edit Ranking",
+        index=False
+    )
 
+    xpath_ranking.to_excel(
+        writer,
+        sheet_name="XPath Ranking",
+        index=False
+    )
+    neighbor_ranking.to_excel(
+    writer,
+    sheet_name="Neighbor Ranking",
+    index=False
+)
 
 print("Ground Truth rows:", len(ground_truth))
 print("Candidate comparisons:", len(results_df))
