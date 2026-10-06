@@ -73,3 +73,27 @@ def xml_node_to_tree_text(node):
             children_text += xml_node_to_tree_text(child)
 
     return "{" + label + children_text + "}"
+def get_node_xpath(root, target_node):
+    # Build the XML hierarchy path of a widget
+
+    def search(current_node, path):
+        if current_node is target_node:
+            return path
+
+        children = [
+            child for child in current_node
+            if child.tag == "node"
+        ]
+
+        for index, child in enumerate(children):
+            result = search(
+                child,
+                path + f"/node[{index + 1}]"
+            )
+
+            if result is not None:
+                return result
+
+        return None
+
+    return search(root, "/hierarchy")

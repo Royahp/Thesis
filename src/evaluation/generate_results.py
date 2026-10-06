@@ -8,14 +8,19 @@ from src.metrics.text_metrics import (
     semantic_cosine_similarity,
 )
 
-from src.metrics.structural_metrics import tree_edit_distance
+
 
 from src.evaluation.xml_utils import (
     load_xml,
     find_xml_node,
     xml_node_to_tree_text,
+    get_node_xpath
 )
-from src.metrics.dom_metrics import exact_match
+from src.metrics.structural_metrics import (
+    tree_edit_distance,
+    xpath_levenshtein_distance
+)
+from src.metrics.dom_metrics import exact_match, dom_attributes_similarity
 
 from src.metrics.spatial_metrics import (
     parse_bounds,
@@ -91,12 +96,23 @@ for _, row in ground_truth.iterrows():
             "Exact match on resource-id": None,
             "Semantic cosine similarity": None,
             "Tree Edit Distance on DOM": None,
+            "Tree Edit Distance on DOM": tree_edit,
+            "XPath old": old_xpath,
+            "XPath new": new_xpath,
+            "Levenshtein distance on XPath": xpath_distance,
+            "Exact match on DOM attributes": dom_attributes_score,
             "Status": "CSV file missing",
             "Exact match on class": None,
             "Semantic cosine on content-desc": None,
             "Euclidean distance on position": None,
             "Euclidean distance on size": None,
             "IoU on bounding box": None,
+            "Tree Edit Distance on DOM": tree_edit,
+             "XPath old": old_xpath,
+            "XPath new": new_xpath,
+            "Levenshtein distance on XPath": xpath_distance,
+            "Exact match on DOM attributes": dom_attributes_score,   
+            
         })
 
         continue
@@ -137,6 +153,13 @@ for _, row in ground_truth.iterrows():
     # Get specific row of matching old and new widgets
     old_widget = old_df.iloc[old_node]
     new_widget = new_df.iloc[new_node]
+
+    
+
+    dom_attributes_score = dom_attributes_similarity(
+    old_widget,
+    new_widget
+)
 
 
     # Read text values
@@ -231,14 +254,20 @@ for _, row in ground_truth.iterrows():
         content_desc_cosine = None
     
 
+    
     # Compare the local DOM structure
     tree_edit = None
+    old_xpath = None
+    new_xpath = None
+    xpath_distance = None
+
+    old_xml_node = None
+    new_xml_node = None
 
     if old_xml.exists() and new_xml.exists():
 
         old_root = load_xml(old_xml)
         new_root = load_xml(new_xml)
-
 
         # Find the same widgets inside the XML files
         old_xml_node = find_xml_node(
@@ -251,8 +280,7 @@ for _, row in ground_truth.iterrows():
             new_widget
         )
 
-
-        # Calculate Tree Edit Distance when both nodes are found
+        # Calculate structural metrics when both nodes are found
         if old_xml_node is not None and new_xml_node is not None:
 
             old_tree_text = xml_node_to_tree_text(
@@ -267,7 +295,23 @@ for _, row in ground_truth.iterrows():
                 old_tree_text,
                 new_tree_text
             )
-    # Read bounds
+
+            old_xpath = get_node_xpath(
+                old_root,
+                old_xml_node
+            )
+
+            new_xpath = get_node_xpath(
+                new_root,
+                new_xml_node
+            )
+
+            xpath_distance = xpath_levenshtein_distance(
+                old_xpath,
+                new_xpath
+            )
+
+      # Read bounds
     old_bounds = parse_bounds(
         old_widget.get("bounds")
     )
@@ -300,7 +344,9 @@ for _, row in ground_truth.iterrows():
         size_dist = None
         iou = None
 
-    # Add one result row for this widget pair
+        
+
+        # Add one result row for this widget pair
     results.append({
         "Widget description": description,
         "Widget id_old": old_node,
@@ -313,15 +359,17 @@ for _, row in ground_truth.iterrows():
         "Exact match on resource-id": resource_id_match,
         "Semantic cosine similarity": semantic_cosine,
         "Tree Edit Distance on DOM": tree_edit,
-        
+        "XPath old": old_xpath,
+        "XPath new": new_xpath,
+        "Levenshtein distance on XPath": xpath_distance,
+        "Exact match on DOM attributes": dom_attributes_score,
         "Exact match on class": class_match,
         "Semantic cosine on content-desc": content_desc_cosine,
-                "Euclidean distance on position": position_dist,
+        "Euclidean distance on position": position_dist,
         "Euclidean distance on size": size_dist,
         "IoU on bounding box": iou,
         "Status": "OK",
     })
-
 
 # Convert all results to a table
 results_df = pd.DataFrame(results)
