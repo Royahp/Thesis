@@ -783,6 +783,142 @@ def make_classification_summary(
     )
 
 
+def make_classification_summary_with_na(
+    classification_summary_df,
+    ranking_summary_df,
+):
+    """
+    Create a second candidate-level summary that includes
+    the number of Not Applicable ground-truth correspondences.
+
+    Precision is unchanged.
+    Recall is revised as:
+        TP / (TP + FN + Not applicable)
+
+    F1-score is then recalculated from Precision and
+    the revised Recall.
+    """
+
+    na_df = ranking_summary_df[
+        [
+            "Metric",
+            "Not applicable",
+        ]
+    ].copy()
+
+    revised_df = (
+        classification_summary_df
+        .merge(
+            na_df,
+            on="Metric",
+            how="left",
+        )
+    )
+
+    revised_df[
+        "Not applicable"
+    ] = (
+        revised_df[
+            "Not applicable"
+        ]
+        .fillna(0)
+        .astype(int)
+    )
+
+    revised_recall_denominator = (
+        revised_df["TP"]
+        + revised_df["FN"]
+        + revised_df["Not applicable"]
+    )
+
+    revised_df["Recall"] = None
+
+    valid_recall = (
+        revised_recall_denominator > 0
+    )
+
+    revised_df.loc[
+        valid_recall,
+        "Recall",
+    ] = (
+        revised_df.loc[
+            valid_recall,
+            "TP",
+        ]
+        / revised_recall_denominator[
+            valid_recall
+        ]
+    )
+
+    revised_df["Recall"] = pd.to_numeric(
+        revised_df["Recall"],
+        errors="coerce",
+    )
+
+    revised_df["F1-score"] = None
+
+    valid_f1 = (
+        revised_df["Precision"].notna()
+        & revised_df["Recall"].notna()
+        & (
+            revised_df["Precision"]
+            + revised_df["Recall"]
+            > 0
+        )
+    )
+
+    revised_df.loc[
+        valid_f1,
+        "F1-score",
+    ] = (
+        2
+        * revised_df.loc[
+            valid_f1,
+            "Precision",
+        ]
+        * revised_df.loc[
+            valid_f1,
+            "Recall",
+        ]
+        / (
+            revised_df.loc[
+                valid_f1,
+                "Precision",
+            ]
+            + revised_df.loc[
+                valid_f1,
+                "Recall",
+            ]
+        )
+    )
+
+    revised_df["F1-score"] = pd.to_numeric(
+        revised_df["F1-score"],
+        errors="coerce",
+    )
+
+    column_order = [
+        "Metric",
+        "TP",
+        "FP",
+        "FN",
+        "TN",
+        "Not applicable",
+        "Evaluated candidate pairs",
+        "Precision",
+        "Recall",
+        "F1-score",
+    ]
+
+    return revised_df[
+        [
+            column
+            for column in column_order
+            if column in revised_df.columns
+        ]
+    ]
+
+
 def make_per_app_summary(
     results_df,
     metric_display_names,
@@ -1795,6 +1931,14 @@ classification_summary_df = (
 )
 
 
+classification_summary_na_df = (
+    make_classification_summary_with_na(
+        classification_summary_df,
+        summary_df,
+    )
+)
+
+
 per_app_summary_df = (
     make_per_app_summary(
         results_df,
@@ -1930,6 +2074,12 @@ with pd.ExcelWriter(
     classification_summary_df.to_excel(
         writer,
         sheet_name="Classification Summary",
+        index=False,
+    )
+
+    classification_summary_na_df.to_excel(
+        writer,
+        sheet_name="Classification Summary NA",
         index=False,
     )
 
