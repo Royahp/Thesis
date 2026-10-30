@@ -708,12 +708,7 @@ classification_na_df = (
 )
 
 
-candidate_na_metric_order = (
-    classification_na_df[
-        "Metric"
-    ]
-    .tolist()
-)
+candidate_na_metric_order = candidate_metric_order
 
 
 # ============================================================
