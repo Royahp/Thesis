@@ -761,6 +761,85 @@ plot_candidate_metric(
     "candidate_level_f1_with_na.png",
 )
 
+# ============================================================
+# COMPARISON: APPLICABLE F1 VS NA-AWARE F1 (VERTICAL)
+# ============================================================
+
+f1_comparison = pd.merge(
+    classification_df[["Metric", "F1-score"]],
+    classification_na_df[["Metric", "F1-score"]],
+    on="Metric",
+    how="inner",
+    suffixes=("_applicable", "_na_aware")
+)
+
+# Keep the same order as the other figures
+f1_comparison = (
+    f1_comparison
+    .set_index("Metric")
+    .reindex(candidate_metric_order)
+    .reset_index()
+)
+
+x = np.arange(len(f1_comparison))
+bar_width = 0.36
+
+fig, ax = plt.subplots(figsize=(16, 8))
+
+bars_applicable = ax.bar(
+    x - bar_width / 2,
+    f1_comparison["F1-score_applicable"],
+    bar_width,
+    label="Applicable-case F1"
+)
+
+bars_na = ax.bar(
+    x + bar_width / 2,
+    f1_comparison["F1-score_na_aware"],
+    bar_width,
+    label="NA-aware F1"
+)
+
+ax.set_xticks(x)
+ax.set_xticklabels(
+    f1_comparison["Metric"],
+    rotation=55,
+    ha="right",
+    fontsize=9
+)
+
+ax.set_ylabel("F1-score (%)")
+ax.set_xlabel("Metric")
+
+ax.set_title(
+    "Effect of Not Applicable Cases on F1-score"
+)
+
+ax.set_ylim(0, 105)
+ax.legend()
+
+ax.grid(axis="y", alpha=0.25)
+ax.set_axisbelow(True)
+
+# Display percentages above the bars
+for bars in [bars_applicable, bars_na]:
+    for bar in bars:
+        value = bar.get_height()
+
+        if pd.notna(value):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                value + 1,
+                f"{value:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                rotation=90
+            )
+
+save_figure(
+    "candidate_level_f1_comparison_na.png"
+)
 
 # ============================================================
 # 10. COVERAGE VS STRICT ACCURACY
