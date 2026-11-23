@@ -1013,6 +1013,54 @@ valid_f1 = (
 )
 
 
+# ============================================================
+# PER-APPLICATION MEAN AND MEDIAN F1 - EXCEL OUTPUT
+# ============================================================
+
+per_app_stats = (
+    valid_f1
+    .groupby("Metric")["F1-score"]
+    .agg(
+        Mean_F1="mean",
+        Median_F1="median",
+        App_Count="count"
+    )
+    .reset_index()
+)
+
+# Sort by Median F1 (highest first)
+per_app_stats = per_app_stats.sort_values(
+    by="Median_F1",
+    ascending=False
+)
+
+# Round values to two decimal places
+per_app_stats["Mean_F1"] = (
+    per_app_stats["Mean_F1"].round(2)
+)
+
+per_app_stats["Median_F1"] = (
+    per_app_stats["Median_F1"].round(2)
+)
+
+# Save to Excel
+excel_output = (
+    PROJECT_ROOT
+    / "results"
+    / "per_application_mean_median.xlsx"
+)
+
+per_app_stats.to_excel(
+    excel_output,
+    index=False
+)
+
+print("\nPER-APPLICATION F1 STATISTICS:")
+print(per_app_stats.to_string(index=False))
+
+print(f"\nExcel saved to: {excel_output}")
+
+
 metric_order = (
     valid_f1
     .groupby("Metric")[
